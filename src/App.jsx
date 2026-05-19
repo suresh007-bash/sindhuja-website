@@ -15,14 +15,22 @@ const floatingPetals = Array.from({ length: 18 }, (_, i) => ({
   ][Math.floor(Math.random() * 5)],
 }));
 
-const photos = [
-  { id: 1, label: 'Radiant', emoji: '🌸', bg: 'linear-gradient(135deg,#fce4ec,#f8bbd0)' },
-  { id: 2, label: 'Cheerful', emoji: '✨', bg: 'linear-gradient(135deg,#ede7f6,#d1c4e9)' },
-  { id: 3, label: 'Graceful', emoji: '🌺', bg: 'linear-gradient(135deg,#fce4ec,#e1bee7)' },
-  { id: 4, label: 'Vibrant', emoji: '💫', bg: 'linear-gradient(135deg,#fff8e1,#ffe0b2)' },
-  { id: 5, label: 'Joyful', emoji: '🌷', bg: 'linear-gradient(135deg,#f3e5f5,#fce4ec)' },
-  { id: 6, label: 'Bright', emoji: '⭐', bg: 'linear-gradient(135deg,#e8f5e9,#c8e6c9)' },
+// Use actual photo files placed in `public/photos`
+const photoFiles = [
+  'WhatsApp Image 2026-05-19 at 11.49.39 AM.jpeg',
+  'WhatsApp Image 2026-05-19 at 11.49.38 AM (1).jpeg',
+  'WhatsApp Image 2026-05-19 at 11.49.38 AM.jpeg',
+  'WhatsApp Image 2026-05-19 at 11.49.37 AM (1).jpeg',
+  'WhatsApp Image 2026-05-19 at 11.49.37 AM.jpeg',
 ];
+
+const photos = photoFiles.map((f, i) => ({
+  id: i + 1,
+  label: `Photo ${i + 1}`,
+  src: `/photos/${f}`,
+  bg: 'transparent',
+  emoji: null,
+}));
 
 const traits = [
   { word: 'Creative', icon: '🎨' },
@@ -116,15 +124,29 @@ function PhotoCard({ photo, index }) {
         border: '2px solid rgba(255,255,255,0.6)',
       }}
     >
-      <div
-        style={{
-          fontSize: '48px',
-          transition: 'transform 0.3s',
-          transform: hovered ? 'scale(1.2) rotate(10deg)' : 'scale(1)',
-        }}
-      >
-        {photo.emoji}
-      </div>
+      {photo.src ? (
+        <img
+          src={photo.src}
+          alt={photo.label}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transition: 'transform 0.3s',
+            transform: hovered ? 'scale(1.03)' : 'scale(1)'
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: '48px',
+            transition: 'transform 0.3s',
+            transform: hovered ? 'scale(1.2) rotate(10deg)' : 'scale(1)',
+          }}
+        >
+          {photo.emoji}
+        </div>
+      )}
 
       <div
         style={{
