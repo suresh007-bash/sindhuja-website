@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const floatingPetals = Array.from({ length: 18 }, (_, i) => ({
   id: i,
@@ -24,12 +24,22 @@ const photoFiles = [
   'WhatsApp Image 2026-05-19 at 11.49.37 AM.jpeg',
 ];
 
+// Local song file for the first photo. Add more files to public/songs/ and map them here.
+const songFiles = [
+  '/songs/Aga-Naga-MassTamilan.dev.mp3',
+  null,
+  null,
+  null,
+  null,
+];
+
 const photos = photoFiles.map((f, i) => ({
   id: i + 1,
   label: `Photo ${i + 1}`,
   src: `/photos/${f}`,
   bg: 'transparent',
   emoji: null,
+  song: songFiles[i] || null,
 }));
 
 const traits = [
@@ -85,7 +95,7 @@ function TypeWriter({ text, speed = 80 }) {
   );
 }
 
-function PhotoCard({ photo, index }) {
+function PhotoCard({ photo, index, onSelect }) {
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -98,6 +108,7 @@ function PhotoCard({ photo, index }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => onSelect && onSelect(photo, index)}
       style={{
         background: photo.bg,
         borderRadius: '20px',
@@ -270,6 +281,122 @@ function TraitCard({ trait, index }) {
 export default function App() {
   const [scrollY, setScrollY] = useState(0);
   const age = 17;
+
+  // Audio / player state
+  const [currentIndex, setCurrentIndex] = useState(null); // index in photos
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const audioRef = useRef(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.8);
+
+  useEffect(() => {
+    // create audio element once
+    audioRef.current = new Audio();
+    audioRef.current.volume = volume;
+    audioRef.current.muted = muted;
+
+    const a = audioRef.current;
+    const onTime = () => setProgress(a.currentTime || 0);
+    const onDur = () => setDuration(a.duration || 0);
+    const onEnd = () => {
+      // auto-advance
+      handleNext();
+    };
+
+    a.addEventListener('timeupdate', onTime);
+    a.addEventListener('durationchange', onDur);
+    a.addEventListener('ended', onEnd);
+
+    return () => {
+      a.removeEventListener('timeupdate', onTime);
+      a.removeEventListener('durationchange', onDur);
+      a.removeEventListener('ended', onEnd);
+      a.pause();
+      audioRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.muted = muted;
+  }, [muted]);
+
+  useEffect(() => {
+    // when currentIndex changes, load its song (if any)
+    if (currentIndex === null || !photos[currentIndex]) return;
+    const song = photos[currentIndex].song;
+    if (!song) return;
+    const a = audioRef.current;
+    a.src = song;
+    a.currentTime = 0;
+    setProgress(0);
+    setDuration(0);
+    if (isPlaying) a.play().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]);
+
+  function handleSelectPhoto(photo, index) {
+    if (photos[index].song) {
+      setCurrentIndex(index);
+      setIsPlaying(true);
+      // will auto-load via effect
+      setTimeout(() => audioRef.current && audioRef.current.play().catch(() => {}), 50);
+    }
+  }
+
+  function togglePlay() {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  }
+
+  function handleNext() {
+    if (currentIndex === null) return;
+    const next = (currentIndex + 1) % photos.length;
+    setCurrentIndex(next);
+    setIsPlaying(true);
+    setTimeout(() => audioRef.current && audioRef.current.play().catch(() => {}), 50);
+  }
+
+  function handlePrev() {
+    if (currentIndex === null) return;
+    const prev = (currentIndex - 1 + photos.length) % photos.length;
+    setCurrentIndex(prev);
+    setIsPlaying(true);
+    setTimeout(() => audioRef.current && audioRef.current.play().catch(() => {}), 50);
+  }
+
+  function handleSeek(e) {
+    const x = Number(e.target.value);
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = x;
+    setProgress(x);
+  }
+
+  function handleVolume(e) {
+    const v = Number(e.target.value);
+    setVolume(v);
+  }
+
+  function toggleMute() {
+    if (!audioRef.current) return;
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+    audioRef.current.muted = nextMuted;
+  }
 
   useEffect(() => {
     const handler = () => setScrollY(window.scrollY);
@@ -515,6 +642,47 @@ export default function App() {
             />
           </div>
         </div>
+
+          {/* Bottom audio player */}
+          {currentIndex !== null && (
+            <div
+              style={{
+                position: 'fixed',
+                left: 16,
+                right: 16,
+                bottom: 16,
+                background: 'rgba(255,255,255,0.95)',
+                border: '1px solid rgba(249,168,212,0.4)',
+                borderRadius: 12,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                zIndex: 9999,
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 220 }}>
+                <strong style={{ color: '#9d174d' }}>{photos[currentIndex].label}</strong>
+                <small style={{ color: '#be185d', opacity: 0.8 }}>{photos[currentIndex].song ? 'Playing song' : 'No song attached'}</small>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={handlePrev} style={{ padding: '8px 10px' }}>Prev</button>
+                <button onClick={togglePlay} style={{ padding: '8px 14px' }}>{isPlaying ? 'Pause' : 'Play'}</button>
+                <button onClick={handleNext} style={{ padding: '8px 10px' }}>Next</button>
+                <button onClick={toggleMute} style={{ padding: '8px 10px' }}>
+                  {muted ? 'Unmute' : 'Mute'}
+                </button>
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="range" min={0} max={Math.max(duration, 0)} value={progress} onChange={handleSeek} style={{ width: '100%' }} />
+                <div style={{ width: 120, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input type="range" min={0} max={1} step={0.01} value={volume} onChange={handleVolume} />
+                </div>
+              </div>
+            </div>
+          )}
       </div>
 
       <div
@@ -569,7 +737,7 @@ export default function App() {
             }}
           >
             {photos.map((p, i) => (
-              <PhotoCard key={p.id} photo={p} index={i} />
+              <PhotoCard key={p.id} photo={p} index={i} onSelect={handleSelectPhoto} />
             ))}
           </div>
 
